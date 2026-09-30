@@ -1,7 +1,9 @@
 package com.example.minniproj
+
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,9 +14,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -49,7 +54,7 @@ data class Book(
 
 
 // ======================================================
-// MODÈLES DE L'API OPEN LIBRARY
+// MODÈLES OPEN LIBRARY
 // ======================================================
 
 data class OpenLibraryResponse(
@@ -74,6 +79,11 @@ data class Work(
 
 interface OpenLibraryApi {
 
+    // Livres populaires
+    @GET("people/mekBot/books/currently-reading.json")
+    suspend fun getCurrentlyReading(): OpenLibraryResponse
+
+    // Livres récemment ajoutés
     @GET("people/mekBot/books/want-to-read.json")
     suspend fun getWantToRead(): OpenLibraryResponse
 }
@@ -85,7 +95,8 @@ interface OpenLibraryApi {
 
 object RetrofitInstance {
 
-    private const val BASE_URL = "https://openlibrary.org/"
+    private const val BASE_URL =
+        "https://openlibrary.org/"
 
     val api: OpenLibraryApi by lazy {
 
@@ -109,17 +120,73 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
 
+    // ==================================================
+    // LIVRE SÉLECTIONNÉ
+    // ==================================================
+
+    var selectedBook by remember {
+        mutableStateOf<Book?>(null)
+    }
+
+
+    // ==================================================
+    // SI UN LIVRE EST SÉLECTIONNÉ
+    // ==================================================
+
+    if (selectedBook != null) {
+
+        BookDetailScreen(
+
+            book = selectedBook!!,
+
+            onBack = {
+                selectedBook = null
+            }
+        )
+
+        return
+    }
+
+
+    // ==================================================
+    // RECHERCHE
+    // ==================================================
+
     var searchText by remember {
         mutableStateOf("")
     }
 
-    var books by remember {
+
+    // ==================================================
+    // LIVRES POPULAIRES
+    // ==================================================
+
+    var popularBooks by remember {
         mutableStateOf<List<Book>>(emptyList())
     }
+
+
+    // ==================================================
+    // LIVRES RÉCENTS
+    // ==================================================
+
+    var recentBooks by remember {
+        mutableStateOf<List<Book>>(emptyList())
+    }
+
+
+    // ==================================================
+    // CHARGEMENT
+    // ==================================================
 
     var isLoading by remember {
         mutableStateOf(true)
     }
+
+
+    // ==================================================
+    // ERREUR
+    // ==================================================
 
     var errorMessage by remember {
         mutableStateOf<String?>(null)
@@ -127,41 +194,110 @@ fun HomeScreen(
 
 
     // ==================================================
-    // APPEL API
+    // SCROLL VERTICAL
+    // ==================================================
+
+    val scrollState =
+        rememberScrollState()
+
+
+    // ==================================================
+    // APPELS API
     // ==================================================
 
     LaunchedEffect(Unit) {
 
         try {
 
-            val response = RetrofitInstance.api.getWantToRead()
+            // ==========================================
+            // POPULAIRES
+            // ==========================================
 
-            books = response.reading_log_entries
-                ?.mapNotNull { entry ->
+            val popularResponse =
+                RetrofitInstance.api
+                    .getCurrentlyReading()
 
-                    val work = entry.work
+            popularBooks =
+                popularResponse.reading_log_entries
+                    ?.mapNotNull { entry ->
 
-                    if (work?.title == null) {
-                        null
-                    } else {
+                        val work = entry.work
 
-                        Book(
-                            title = work.title,
-                            author = work.author_names
-                                ?.joinToString(", ")
-                                ?: "Auteur inconnu",
-                            year = work.first_publish_year
-                                ?.toString()
-                                ?: "Année inconnue",
-                            coverId = work.cover_id
-                        )
+                        if (work?.title == null) {
+
+                            null
+
+                        } else {
+
+                            Book(
+
+                                title =
+                                    work.title,
+
+                                author =
+                                    work.author_names
+                                        ?.joinToString(", ")
+                                        ?: "Auteur inconnu",
+
+                                year =
+                                    work.first_publish_year
+                                        ?.toString()
+                                        ?: "Année inconnue",
+
+                                coverId =
+                                    work.cover_id
+                            )
+                        }
                     }
-                }
-                ?: emptyList()
+                    ?: emptyList()
+
+
+            // ==========================================
+            // RÉCENTS
+            // ==========================================
+
+            val recentResponse =
+                RetrofitInstance.api
+                    .getWantToRead()
+
+            recentBooks =
+                recentResponse.reading_log_entries
+                    ?.mapNotNull { entry ->
+
+                        val work = entry.work
+
+                        if (work?.title == null) {
+
+                            null
+
+                        } else {
+
+                            Book(
+
+                                title =
+                                    work.title,
+
+                                author =
+                                    work.author_names
+                                        ?.joinToString(", ")
+                                        ?: "Auteur inconnu",
+
+                                year =
+                                    work.first_publish_year
+                                        ?.toString()
+                                        ?: "Année inconnue",
+
+                                coverId =
+                                    work.cover_id
+                            )
+                        }
+                    }
+                    ?: emptyList()
 
         } catch (e: Exception) {
 
-            errorMessage = e.message
+            errorMessage =
+                e.message ?: "Erreur inconnue"
 
         } finally {
 
@@ -171,20 +307,41 @@ fun HomeScreen(
 
 
     // ==================================================
-    // FILTRAGE RECHERCHE
+    // FILTRE POPULAIRES
     // ==================================================
 
-    val filteredBooks = books.filter { book ->
+    val filteredPopularBooks =
+        popularBooks.filter { book ->
 
-        book.title.contains(
-            searchText,
-            ignoreCase = true
-        ) ||
-                book.author.contains(
-                    searchText,
-                    ignoreCase = true
-                )
-    }
+            book.title.contains(
+                searchText,
+                ignoreCase = true
+            ) ||
+
+                    book.author.contains(
+                        searchText,
+                        ignoreCase = true
+                    )
+        }
+
+
+    // ==================================================
+    // FILTRE RÉCENTS
+    // ==================================================
+
+    val filteredRecentBooks =
+        recentBooks.filter { book ->
+
+            book.title.contains(
+                searchText,
+                ignoreCase = true
+            ) ||
+
+                    book.author.contains(
+                        searchText,
+                        ignoreCase = true
+                    )
+        }
 
 
     // ==================================================
@@ -192,118 +349,147 @@ fun HomeScreen(
     // ==================================================
 
     Column(
+
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(20.dp)
     ) {
 
-        // ----------------------------------------------
-        // Bonjour
-        // ----------------------------------------------
+        // ==================================================
+        // BONJOUR
+        // ==================================================
 
         Text(
+
             text = "Bonjour !",
+
             fontSize = 28.sp,
-            fontWeight = FontWeight.Bold
+
+            fontWeight =
+                FontWeight.Bold
         )
 
+
         Spacer(
-            modifier = Modifier.height(5.dp)
+            modifier =
+                Modifier.height(5.dp)
         )
+
 
         Text(
-            text = "Découvrez de nouveaux livres",
-            fontSize = 14.sp
+
+            text =
+                "Découvrez de nouveaux livres",
+
+            fontSize =
+                14.sp
         )
+
 
         Spacer(
-            modifier = Modifier.height(20.dp)
+            modifier =
+                Modifier.height(20.dp)
         )
 
 
-        // ----------------------------------------------
-        // Recherche
-        // ----------------------------------------------
+        // ==================================================
+        // RECHERCHE
+        // ==================================================
 
         OutlinedTextField(
-            value = searchText,
+
+            value =
+                searchText,
 
             onValueChange = {
                 searchText = it
             },
 
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier.fillMaxWidth(),
 
             placeholder = {
-                Text("Rechercher un livre...")
+
+                Text(
+                    text =
+                        "Rechercher un livre..."
+                )
             },
 
             singleLine = true
         )
 
+
         Spacer(
-            modifier = Modifier.height(30.dp)
+            modifier =
+                Modifier.height(30.dp)
         )
 
 
-        // ----------------------------------------------
+        // ==================================================
         // CHARGEMENT
-        // ----------------------------------------------
+        // ==================================================
 
         if (isLoading) {
 
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+
+                modifier =
+                    Modifier.fillMaxWidth(),
+
+                horizontalAlignment =
+                    Alignment.CenterHorizontally
             ) {
 
                 CircularProgressIndicator()
 
                 Spacer(
-                    modifier = Modifier.height(10.dp)
+                    modifier =
+                        Modifier.height(10.dp)
                 )
 
                 Text(
-                    text = "Chargement des livres..."
+                    text =
+                        "Chargement des livres..."
                 )
             }
 
-        }
 
-
-        // ----------------------------------------------
-        // ERREUR
-        // ----------------------------------------------
-
-        else if (errorMessage != null) {
+        } else if (errorMessage != null) {
 
             Text(
-                text = "Erreur lors du chargement des livres.",
-                fontWeight = FontWeight.Bold
+
+                text =
+                    "Erreur lors du chargement des livres.",
+
+                fontWeight =
+                    FontWeight.Bold
             )
+
 
             Spacer(
-                modifier = Modifier.height(5.dp)
+                modifier =
+                    Modifier.height(5.dp)
             )
+
 
             Text(
-                text = errorMessage ?: ""
+                text =
+                    errorMessage ?: ""
             )
-        }
 
 
-        // ----------------------------------------------
-        // LIVRES
-        // ----------------------------------------------
+        } else {
 
-        else {
-
-            // ==========================================
+            // ==================================================
             // LIVRES POPULAIRES
-            // ==========================================
+            // ==================================================
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+
+                modifier =
+                    Modifier.fillMaxWidth(),
 
                 horizontalArrangement =
                     Arrangement.SpaceBetween,
@@ -313,115 +499,192 @@ fun HomeScreen(
             ) {
 
                 Text(
-                    text = "Livres populaires",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
+
+                    text =
+                        "Livres populaires",
+
+                    fontSize =
+                        20.sp,
+
+                    fontWeight =
+                        FontWeight.Bold
                 )
 
+
                 Text(
-                    text = "Voir tout",
-                    fontSize = 14.sp
+
+                    text =
+                        "Voir tout",
+
+                    fontSize =
+                        14.sp
                 )
             }
 
+
             Spacer(
-                modifier = Modifier.height(15.dp)
+                modifier =
+                    Modifier.height(15.dp)
             )
 
 
-            // ==========================================
+            // ==================================================
             // LISTE HORIZONTALE
-            // ==========================================
+            // ==================================================
 
             LazyRow(
+
                 horizontalArrangement =
                     Arrangement.spacedBy(15.dp)
+
             ) {
 
-                items(filteredBooks) { book ->
+                items(
+                    filteredPopularBooks
+                ) { book ->
 
-                    BookCard(book)
+                    BookCard(
+
+                        book = book,
+
+                        onClick = {
+                            selectedBook = book
+                        }
+                    )
                 }
             }
 
 
             Spacer(
-                modifier = Modifier.height(30.dp)
+                modifier =
+                    Modifier.height(30.dp)
             )
 
 
-            // ==========================================
+            // ==================================================
             // RÉCEMMENT AJOUTÉS
-            // ==========================================
+            // ==================================================
 
             Text(
-                text = "Récemment ajoutés",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
+
+                text =
+                    "Récemment ajoutés",
+
+                fontSize =
+                    20.sp,
+
+                fontWeight =
+                    FontWeight.Bold
             )
+
 
             Spacer(
-                modifier = Modifier.height(15.dp)
+                modifier =
+                    Modifier.height(15.dp)
             )
 
 
-            filteredBooks.forEach { book ->
+            // ==================================================
+            // LISTE VERTICALE
+            // ==================================================
 
-                RecentBook(book)
+            filteredRecentBooks.forEach { book ->
+
+                RecentBook(
+
+                    book = book,
+
+                    onClick = {
+                        selectedBook = book
+                    }
+                )
+
 
                 Spacer(
-                    modifier = Modifier.height(10.dp)
+                    modifier =
+                        Modifier.height(10.dp)
                 )
             }
+
+
+            Spacer(
+                modifier =
+                    Modifier.height(30.dp)
+            )
         }
     }
 }
 
 
 // ======================================================
-// CARTE LIVRE
+// BOOK CARD
 // ======================================================
 
 @Composable
 fun BookCard(
-    book: Book
+    book: Book,
+    onClick: () -> Unit
 ) {
 
     Column(
-        modifier = Modifier.width(120.dp)
+
+        modifier = Modifier
+            .width(120.dp)
+            .clickable {
+                onClick()
+            }
     ) {
+
+        // ==================================================
+        // COUVERTURE
+        // ==================================================
 
         if (book.coverId != null) {
 
             AsyncImage(
-                model = "https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg",
-                contentDescription = "Couverture de ${book.title}",
-                modifier = Modifier
-                    .size(
-                        width = 120.dp,
-                        height = 170.dp
-                    )
-                    .clip(
-                        RoundedCornerShape(10.dp)
-                    ),
-                contentScale = ContentScale.Crop
+
+                model =
+                    "https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg",
+
+                contentDescription =
+                    "Couverture de ${book.title}",
+
+                modifier =
+                    Modifier
+                        .size(
+                            width = 120.dp,
+                            height = 170.dp
+                        )
+                        .clip(
+                            RoundedCornerShape(10.dp)
+                        ),
+
+                contentScale =
+                    ContentScale.Crop
             )
 
         } else {
 
             Column(
-                modifier = Modifier
-                    .size(
-                        width = 120.dp,
-                        height = 170.dp
-                    )
-                    .clip(
-                        RoundedCornerShape(10.dp)
-                    )
-                    .background(Color.LightGray),
 
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                modifier =
+                    Modifier
+                        .size(
+                            width = 120.dp,
+                            height = 170.dp
+                        )
+                        .clip(
+                            RoundedCornerShape(10.dp)
+                        )
+                        .background(
+                            Color.LightGray
+                        ),
+
+                horizontalAlignment =
+                    Alignment.CenterHorizontally,
+
+                verticalArrangement =
+                    Arrangement.Center
             ) {
 
                 Text(
@@ -431,81 +694,126 @@ fun BookCard(
             }
         }
 
+
         Spacer(
-            modifier = Modifier.height(8.dp)
+            modifier =
+                Modifier.height(8.dp)
         )
 
-        Text(
-            text = book.title,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 2
-        )
 
         Text(
-            text = book.author,
-            fontSize = 12.sp,
-            maxLines = 1
+
+            text =
+                book.title,
+
+            fontSize =
+                14.sp,
+
+            fontWeight =
+                FontWeight.Bold,
+
+            maxLines =
+                2
         )
 
+
         Text(
-            text = book.year,
-            fontSize = 11.sp
+
+            text =
+                book.author,
+
+            fontSize =
+                12.sp,
+
+            maxLines =
+                1
+        )
+
+
+        Text(
+
+            text =
+                book.year,
+
+            fontSize =
+                11.sp
         )
     }
 }
+
+
+// ======================================================
+// RECENT BOOK
+// ======================================================
+
 @Composable
 fun RecentBook(
-    book: Book
+    book: Book,
+    onClick: () -> Unit
 ) {
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                onClick()
+            },
+
+        verticalAlignment =
+            Alignment.CenterVertically
     ) {
 
-        // ==========================================
-        // COUVERTURE DU LIVRE
-        // ==========================================
+        // ==================================================
+        // COUVERTURE
+        // ==================================================
 
         if (book.coverId != null) {
 
             AsyncImage(
-                model = "https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg",
 
-                contentDescription = "Couverture de ${book.title}",
+                model =
+                    "https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg",
 
-                modifier = Modifier
-                    .size(
-                        width = 60.dp,
-                        height = 80.dp
-                    )
-                    .clip(
-                        RoundedCornerShape(8.dp)
-                    ),
+                contentDescription =
+                    "Couverture de ${book.title}",
 
-                contentScale = ContentScale.Crop
+                modifier =
+                    Modifier
+                        .size(
+                            width = 60.dp,
+                            height = 80.dp
+                        )
+                        .clip(
+                            RoundedCornerShape(8.dp)
+                        ),
+
+                contentScale =
+                    ContentScale.Crop
             )
 
         } else {
 
-            // Si aucune couverture n'est disponible
             Column(
-                modifier = Modifier
-                    .size(
-                        width = 60.dp,
-                        height = 80.dp
-                    )
-                    .clip(
-                        RoundedCornerShape(8.dp)
-                    )
-                    .background(
-                        Color.LightGray
-                    ),
 
-                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier =
+                    Modifier
+                        .size(
+                            width = 60.dp,
+                            height = 80.dp
+                        )
+                        .clip(
+                            RoundedCornerShape(8.dp)
+                        )
+                        .background(
+                            Color.LightGray
+                        ),
 
-                verticalArrangement = Arrangement.Center
+                horizontalAlignment =
+                    Alignment.CenterHorizontally,
+
+                verticalArrangement =
+                    Arrangement.Center
             ) {
 
                 Text(
@@ -516,38 +824,304 @@ fun RecentBook(
         }
 
 
-        // ==========================================
-        // ESPACE ENTRE IMAGE ET TEXTE
-        // ==========================================
-
         Spacer(
-            modifier = Modifier.width(15.dp)
+            modifier =
+                Modifier.width(15.dp)
         )
 
 
-        // ==========================================
-        // INFORMATIONS DU LIVRE
-        // ==========================================
+        // ==================================================
+        // INFORMATIONS
+        // ==================================================
 
         Column {
 
             Text(
-                text = book.title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2
+
+                text =
+                    book.title,
+
+                fontSize =
+                    15.sp,
+
+                fontWeight =
+                    FontWeight.Bold,
+
+                maxLines =
+                    2
             )
 
-            Text(
-                text = book.author,
-                fontSize = 13.sp,
-                maxLines = 1
-            )
 
             Text(
-                text = book.year,
-                fontSize = 12.sp
+
+                text =
+                    book.author,
+
+                fontSize =
+                    13.sp,
+
+                maxLines =
+                    1
+            )
+
+
+            Text(
+
+                text =
+                    book.year,
+
+                fontSize =
+                    12.sp
             )
         }
+    }
+}
+
+
+// ======================================================
+// PAGE DÉTAILS DU LIVRE
+// ======================================================
+
+@Composable
+fun BookDetailScreen(
+    book: Book,
+    onBack: () -> Unit
+) {
+
+    Column(
+
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(
+                    rememberScrollState()
+                )
+                .padding(20.dp)
+    ) {
+
+        // ==================================================
+        // RETOUR
+        // ==================================================
+
+        Button(
+            onClick = onBack
+        ) {
+
+            Text(
+                text = "Retour"
+            )
+        }
+
+
+        Spacer(
+            modifier =
+                Modifier.height(25.dp)
+        )
+
+
+        // ==================================================
+        // COUVERTURE
+        // ==================================================
+
+        if (book.coverId != null) {
+
+            AsyncImage(
+
+                model =
+                    "https://covers.openlibrary.org/b/id/${book.coverId}-L.jpg",
+
+                contentDescription =
+                    "Couverture de ${book.title}",
+
+                modifier =
+                    Modifier
+                        .size(
+                            width = 220.dp,
+                            height = 320.dp
+                        )
+                        .clip(
+                            RoundedCornerShape(16.dp)
+                        )
+                        .align(
+                            Alignment.CenterHorizontally
+                        ),
+
+                contentScale =
+                    ContentScale.Crop
+            )
+
+        } else {
+
+            Column(
+
+                modifier =
+                    Modifier
+                        .size(
+                            width = 220.dp,
+                            height = 320.dp
+                        )
+                        .clip(
+                            RoundedCornerShape(16.dp)
+                        )
+                        .background(
+                            Color.LightGray
+                        )
+                        .align(
+                            Alignment.CenterHorizontally
+                        ),
+
+                horizontalAlignment =
+                    Alignment.CenterHorizontally,
+
+                verticalArrangement =
+                    Arrangement.Center
+            ) {
+
+                Text(
+                    text = "📖",
+                    fontSize = 60.sp
+                )
+            }
+        }
+
+
+        Spacer(
+            modifier =
+                Modifier.height(25.dp)
+        )
+
+
+        // ==================================================
+        // TITRE
+        // ==================================================
+
+        Text(
+
+            text =
+                book.title,
+
+            fontSize =
+                26.sp,
+
+            fontWeight =
+                FontWeight.Bold
+        )
+
+
+        Spacer(
+            modifier =
+                Modifier.height(10.dp)
+        )
+
+
+        // ==================================================
+        // AUTEUR
+        // ==================================================
+
+        Text(
+
+            text =
+                "Auteur",
+
+            fontSize =
+                13.sp,
+
+            fontWeight =
+                FontWeight.Bold,
+
+            color =
+                Color.Gray
+        )
+
+
+        Text(
+
+            text =
+                book.author,
+
+            fontSize =
+                18.sp
+        )
+
+
+        Spacer(
+            modifier =
+                Modifier.height(15.dp)
+        )
+
+
+        // ==================================================
+        // ANNÉE
+        // ==================================================
+
+        Text(
+
+            text =
+                "Année de publication",
+
+            fontSize =
+                13.sp,
+
+            fontWeight =
+                FontWeight.Bold,
+
+            color =
+                Color.Gray
+        )
+
+
+        Text(
+
+            text =
+                book.year,
+
+            fontSize =
+                18.sp
+        )
+
+
+        Spacer(
+            modifier =
+                Modifier.height(30.dp)
+        )
+
+
+        // ==================================================
+        // DESCRIPTION
+        // ==================================================
+
+        Text(
+
+            text =
+                "Informations sur le livre",
+
+            fontSize =
+                20.sp,
+
+            fontWeight =
+                FontWeight.Bold
+        )
+
+
+        Spacer(
+            modifier =
+                Modifier.height(8.dp)
+        )
+
+
+        Text(
+
+            text =
+                "Ce livre est actuellement disponible dans votre bibliothèque Open Library.",
+
+            fontSize =
+                15.sp,
+
+            lineHeight =
+                22.sp,
+
+            color =
+                Color.Gray
+        )
     }
 }

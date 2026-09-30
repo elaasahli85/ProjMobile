@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import com.example.minniproj.model.ProfileScreen
 import com.example.minniproj.ui.theme.MinniProjTheme
 
 class MainActivity : ComponentActivity() {
@@ -87,11 +88,11 @@ fun MinniProjApp() {
                 }
 
                 AppDestinations.PROFILE -> {
-                    Text(
-                        text = "Profile",
+                    ProfileScreen(
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
+
             }
         }
     }
