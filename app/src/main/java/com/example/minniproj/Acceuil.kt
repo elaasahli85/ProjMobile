@@ -1,7 +1,5 @@
 package com.example.minniproj
 
-import coil.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,14 +26,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.example.minniproj.model.FavoriteEntity
+import com.example.minniproj.AppDatabase
+import com.example.minniproj.FavoriteDao
+import kotlinx.coroutines.launch
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
@@ -79,11 +85,9 @@ data class Work(
 
 interface OpenLibraryApi {
 
-    // Livres populaires
     @GET("people/mekBot/books/currently-reading.json")
     suspend fun getCurrentlyReading(): OpenLibraryResponse
 
-    // Livres récemment ajoutés
     @GET("people/mekBot/books/want-to-read.json")
     suspend fun getWantToRead(): OpenLibraryResponse
 }
@@ -117,8 +121,27 @@ object RetrofitInstance {
 
 @Composable
 fun HomeScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onFavoritesClick: () -> Unit
 ) {
+
+    // ==================================================
+    // CONTEXT / ROOM
+    // ==================================================
+
+    val context = LocalContext.current
+
+    val database = remember {
+        AppDatabase.getDatabase(context)
+    }
+
+    val dao = database.favoriteDao()
+
+    // ==================================================
+    // COROUTINE
+    // ==================================================
+
+    val scope = rememberCoroutineScope()
 
     // ==================================================
     // LIVRE SÉLECTIONNÉ
@@ -136,7 +159,6 @@ fun HomeScreen(
     if (selectedBook != null) {
 
         BookDetailScreen(
-
             book = selectedBook!!,
 
             onBack = {
@@ -194,7 +216,7 @@ fun HomeScreen(
 
 
     // ==================================================
-    // SCROLL VERTICAL
+    // SCROLL
     // ==================================================
 
     val scrollState =
@@ -231,8 +253,7 @@ fun HomeScreen(
 
                             Book(
 
-                                title =
-                                    work.title,
+                                title = work.title,
 
                                 author =
                                     work.author_names
@@ -274,8 +295,7 @@ fun HomeScreen(
 
                             Book(
 
-                                title =
-                                    work.title,
+                                title = work.title,
 
                                 author =
                                     work.author_names
@@ -304,9 +324,6 @@ fun HomeScreen(
             isLoading = false
         }
     }
-
-
-    // ==================================================
     // FILTRE POPULAIRES
     // ==================================================
 
@@ -356,41 +373,31 @@ fun HomeScreen(
             .padding(20.dp)
     ) {
 
+
         // ==================================================
         // BONJOUR
         // ==================================================
 
         Text(
-
             text = "Bonjour !",
-
             fontSize = 28.sp,
-
-            fontWeight =
-                FontWeight.Bold
+            fontWeight = FontWeight.Bold
         )
-
 
         Spacer(
-            modifier =
-                Modifier.height(5.dp)
+            modifier = Modifier.height(5.dp)
         )
-
 
         Text(
-
-            text =
-                "Découvrez de nouveaux livres",
-
-            fontSize =
-                14.sp
+            text = "Découvrez de nouveaux livres",
+            fontSize = 14.sp
         )
 
 
         Spacer(
-            modifier =
-                Modifier.height(20.dp)
+            modifier = Modifier.height(15.dp)
         )
+
 
 
         // ==================================================
@@ -399,21 +406,18 @@ fun HomeScreen(
 
         OutlinedTextField(
 
-            value =
-                searchText,
+            value = searchText,
 
             onValueChange = {
                 searchText = it
             },
 
-            modifier =
-                Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
 
             placeholder = {
 
                 Text(
-                    text =
-                        "Rechercher un livre..."
+                    text = "Rechercher un livre..."
                 )
             },
 
@@ -422,8 +426,7 @@ fun HomeScreen(
 
 
         Spacer(
-            modifier =
-                Modifier.height(30.dp)
+            modifier = Modifier.height(30.dp)
         )
 
 
@@ -435,8 +438,7 @@ fun HomeScreen(
 
             Column(
 
-                modifier =
-                    Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
 
                 horizontalAlignment =
                     Alignment.CenterHorizontally
@@ -445,13 +447,11 @@ fun HomeScreen(
                 CircularProgressIndicator()
 
                 Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
+                    modifier = Modifier.height(10.dp)
                 )
 
                 Text(
-                    text =
-                        "Chargement des livres..."
+                    text = "Chargement des livres..."
                 )
             }
 
@@ -459,28 +459,21 @@ fun HomeScreen(
         } else if (errorMessage != null) {
 
             Text(
-
-                text =
-                    "Erreur lors du chargement des livres.",
-
-                fontWeight =
-                    FontWeight.Bold
+                text = "Erreur lors du chargement des livres.",
+                fontWeight = FontWeight.Bold
             )
-
 
             Spacer(
-                modifier =
-                    Modifier.height(5.dp)
+                modifier = Modifier.height(5.dp)
             )
 
-
             Text(
-                text =
-                    errorMessage ?: ""
+                text = errorMessage ?: ""
             )
 
 
         } else {
+
 
             // ==================================================
             // LIVRES POPULAIRES
@@ -488,8 +481,7 @@ fun HomeScreen(
 
             Row(
 
-                modifier =
-                    Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
 
                 horizontalArrangement =
                     Arrangement.SpaceBetween,
@@ -499,32 +491,15 @@ fun HomeScreen(
             ) {
 
                 Text(
-
-                    text =
-                        "Livres populaires",
-
-                    fontSize =
-                        20.sp,
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-
-                Text(
-
-                    text =
-                        "Voir tout",
-
-                    fontSize =
-                        14.sp
+                    text = "Livres populaires",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
 
 
             Spacer(
-                modifier =
-                    Modifier.height(15.dp)
+                modifier = Modifier.height(15.dp)
             )
 
 
@@ -548,6 +523,7 @@ fun HomeScreen(
                         book = book,
 
                         onClick = {
+
                             selectedBook = book
                         }
                     )
@@ -556,8 +532,7 @@ fun HomeScreen(
 
 
             Spacer(
-                modifier =
-                    Modifier.height(30.dp)
+                modifier = Modifier.height(30.dp)
             )
 
 
@@ -566,21 +541,14 @@ fun HomeScreen(
             // ==================================================
 
             Text(
-
-                text =
-                    "Récemment ajoutés",
-
-                fontSize =
-                    20.sp,
-
-                fontWeight =
-                    FontWeight.Bold
+                text = "Récemment ajoutés",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
             )
 
 
             Spacer(
-                modifier =
-                    Modifier.height(15.dp)
+                modifier = Modifier.height(15.dp)
             )
 
 
@@ -595,21 +563,19 @@ fun HomeScreen(
                     book = book,
 
                     onClick = {
+
                         selectedBook = book
                     }
                 )
 
-
                 Spacer(
-                    modifier =
-                        Modifier.height(10.dp)
+                    modifier = Modifier.height(10.dp)
                 )
             }
 
 
             Spacer(
-                modifier =
-                    Modifier.height(30.dp)
+                modifier = Modifier.height(30.dp)
             )
         }
     }
@@ -696,47 +662,28 @@ fun BookCard(
 
 
         Spacer(
-            modifier =
-                Modifier.height(8.dp)
+            modifier = Modifier.height(8.dp)
         )
 
 
         Text(
-
-            text =
-                book.title,
-
-            fontSize =
-                14.sp,
-
-            fontWeight =
-                FontWeight.Bold,
-
-            maxLines =
-                2
+            text = book.title,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2
         )
 
 
         Text(
-
-            text =
-                book.author,
-
-            fontSize =
-                12.sp,
-
-            maxLines =
-                1
+            text = book.author,
+            fontSize = 12.sp,
+            maxLines = 1
         )
 
 
         Text(
-
-            text =
-                book.year,
-
-            fontSize =
-                11.sp
+            text = book.year,
+            fontSize = 11.sp
         )
     }
 }
@@ -763,6 +710,7 @@ fun RecentBook(
         verticalAlignment =
             Alignment.CenterVertically
     ) {
+
 
         // ==================================================
         // COUVERTURE
@@ -825,8 +773,7 @@ fun RecentBook(
 
 
         Spacer(
-            modifier =
-                Modifier.width(15.dp)
+            modifier = Modifier.width(15.dp)
         )
 
 
@@ -837,41 +784,21 @@ fun RecentBook(
         Column {
 
             Text(
-
-                text =
-                    book.title,
-
-                fontSize =
-                    15.sp,
-
-                fontWeight =
-                    FontWeight.Bold,
-
-                maxLines =
-                    2
+                text = book.title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2
             )
 
-
             Text(
-
-                text =
-                    book.author,
-
-                fontSize =
-                    13.sp,
-
-                maxLines =
-                    1
+                text = book.author,
+                fontSize = 13.sp,
+                maxLines = 1
             )
 
-
             Text(
-
-                text =
-                    book.year,
-
-                fontSize =
-                    12.sp
+                text = book.year,
+                fontSize = 12.sp
             )
         }
     }
@@ -888,6 +815,39 @@ fun BookDetailScreen(
     onBack: () -> Unit
 ) {
 
+    val context = LocalContext.current
+
+    val database = remember {
+        AppDatabase.getDatabase(context)
+    }
+
+    val dao = database.favoriteDao()
+
+    val scope = rememberCoroutineScope()
+
+    var isFavorite by remember {
+        mutableStateOf(false)
+    }
+
+
+    // ==================================================
+    // VÉRIFIER SI LE LIVRE EST DÉJÀ FAVORI
+    // ==================================================
+
+    LaunchedEffect(book.coverId) {
+
+        if (book.coverId != null) {
+
+            isFavorite =
+                dao.isFavorite(book.coverId)
+        }
+    }
+
+
+    // ==================================================
+    // INTERFACE
+    // ==================================================
+
     Column(
 
         modifier =
@@ -898,6 +858,7 @@ fun BookDetailScreen(
                 )
                 .padding(20.dp)
     ) {
+
 
         // ==================================================
         // RETOUR
@@ -914,8 +875,7 @@ fun BookDetailScreen(
 
 
         Spacer(
-            modifier =
-                Modifier.height(25.dp)
+            modifier = Modifier.height(25.dp)
         )
 
 
@@ -986,8 +946,7 @@ fun BookDetailScreen(
 
 
         Spacer(
-            modifier =
-                Modifier.height(25.dp)
+            modifier = Modifier.height(25.dp)
         )
 
 
@@ -996,21 +955,14 @@ fun BookDetailScreen(
         // ==================================================
 
         Text(
-
-            text =
-                book.title,
-
-            fontSize =
-                26.sp,
-
-            fontWeight =
-                FontWeight.Bold
+            text = book.title,
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Bold
         )
 
 
         Spacer(
-            modifier =
-                Modifier.height(10.dp)
+            modifier = Modifier.height(10.dp)
         )
 
 
@@ -1019,34 +971,20 @@ fun BookDetailScreen(
         // ==================================================
 
         Text(
-
-            text =
-                "Auteur",
-
-            fontSize =
-                13.sp,
-
-            fontWeight =
-                FontWeight.Bold,
-
-            color =
-                Color.Gray
+            text = "Auteur",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Gray
         )
 
-
         Text(
-
-            text =
-                book.author,
-
-            fontSize =
-                18.sp
+            text = book.author,
+            fontSize = 18.sp
         )
 
 
         Spacer(
-            modifier =
-                Modifier.height(15.dp)
+            modifier = Modifier.height(15.dp)
         )
 
 
@@ -1055,73 +993,108 @@ fun BookDetailScreen(
         // ==================================================
 
         Text(
-
-            text =
-                "Année de publication",
-
-            fontSize =
-                13.sp,
-
-            fontWeight =
-                FontWeight.Bold,
-
-            color =
-                Color.Gray
+            text = "Année de publication",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Gray
         )
 
-
         Text(
-
-            text =
-                book.year,
-
-            fontSize =
-                18.sp
+            text = book.year,
+            fontSize = 18.sp
         )
 
 
         Spacer(
-            modifier =
-                Modifier.height(30.dp)
+            modifier = Modifier.height(25.dp)
         )
 
 
         // ==================================================
-        // DESCRIPTION
+        // BOUTON FAVORI
+        // ==================================================
+
+        if (book.coverId != null) {
+
+            Button(
+
+                onClick = {
+
+                    scope.launch {
+
+                        if (isFavorite) {
+
+                            dao.deleteFavorite(
+                                FavoriteEntity(
+                                    coverId = book.coverId,
+                                    title = book.title,
+                                    author = book.author,
+                                    year = book.year
+                                )
+                            )
+
+                            isFavorite = false
+
+                        } else {
+
+                            dao.insertFavorite(
+                                FavoriteEntity(
+                                    coverId = book.coverId,
+                                    title = book.title,
+                                    author = book.author,
+                                    year = book.year
+                                )
+                            )
+
+                            isFavorite = true
+                        }
+                    }
+                },
+
+                modifier = Modifier.fillMaxWidth()
+            ) {
+
+                Text(
+                    text =
+                        if (isFavorite)
+                            "❤️ Retirer des favoris"
+                        else
+                            "🤍 Ajouter aux favoris"
+                )
+            }
+        }
+
+
+        Spacer(
+            modifier = Modifier.height(30.dp)
+        )
+
+
+        // ==================================================
+        // INFORMATIONS
         // ==================================================
 
         Text(
-
-            text =
-                "Informations sur le livre",
-
-            fontSize =
-                20.sp,
-
-            fontWeight =
-                FontWeight.Bold
+            text = "Informations sur le livre",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
         )
 
 
         Spacer(
-            modifier =
-                Modifier.height(8.dp)
+            modifier = Modifier.height(8.dp)
         )
 
 
         Text(
-
             text =
                 "Ce livre est actuellement disponible dans votre bibliothèque Open Library.",
 
-            fontSize =
-                15.sp,
+            fontSize = 15.sp,
 
-            lineHeight =
-                22.sp,
+            lineHeight = 22.sp,
 
-            color =
-                Color.Gray
+            color = Color.Gray
         )
     }
 }
