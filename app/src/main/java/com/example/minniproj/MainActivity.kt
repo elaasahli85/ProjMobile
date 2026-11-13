@@ -1,30 +1,30 @@
 package com.example.minniproj
 
-import android.R.attr.contentDescription
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
-import com.example.minniproj.model.ProfileScreen
+import com.example.minniproj.model.Book
+import com.example.minniproj.model.BookDetailScreen
+import com.example.minniproj.model.HomeScreen
 import com.example.minniproj.ui.theme.MinniProjTheme
 
 
@@ -54,106 +54,103 @@ fun MinniProjApp() {
 
     NavigationSuiteScaffold(
 
-        // ==========================================
-        // MENU DE NAVIGATION
-        // ==========================================
-
         navigationSuiteItems = {
 
             AppDestinations.entries.forEach { destination ->
 
                 item(
-
-                    // Icône
                     icon = {
-
                         Icon(
                             painter = painterResource(id = destination.icon),
                             contentDescription = destination.label,
                             modifier = Modifier.size(24.dp)
                         )
-
-
-
                     },
 
-                    // Texte
                     label = {
-
-                        Text(
-                            text = destination.label
-                        )
+                        Text(text = destination.label)
                     },
 
-                    // Onglet sélectionné
-                    selected =
-                        destination == currentDestination,
+                    selected = destination == currentDestination,
 
-                    // Action
                     onClick = {
-
-                        currentDestination =
-                            destination
+                        currentDestination = destination
                     }
                 )
             }
         }
     ) {
 
+        // Pas de padding système ici : les en-têtes dégradés des écrans
+        // gèrent eux-mêmes la barre d'état (statusBarsPadding)
         Scaffold(
-            modifier = Modifier.fillMaxSize()
-        ) { innerPadding ->
+            modifier = Modifier.fillMaxSize(),
+            contentWindowInsets = WindowInsets(0, 0, 0, 0)
+        ) { _ ->
 
             when (currentDestination) {
 
-                // =========================================
-                // HOME
-                // =========================================
+                AppDestinations.HOME -> HomeScreen()
 
-                AppDestinations.HOME -> {
+                AppDestinations.FAVORITES -> FavoritesScreen(
+                    onBack = {
+                        currentDestination = AppDestinations.HOME
+                    }
+                )
 
-                    HomeScreen(
-                        modifier =
-                            Modifier.padding(innerPadding),
-
-                        onFavoritesClick = {
-
-                            currentDestination =
-                                AppDestinations.FAVORITES
-                        }
-                    )
-                }
-
-
-                // =========================================
-                // FAVORIS
-                // =========================================
-
-                AppDestinations.FAVORITES -> {
-
-                    FavoritesScreen(
-                        onBack = {
-
-                            currentDestination =
-                                AppDestinations.HOME
-                        }
-                    )
-                }
-
-
-                // =========================================
-                // PROFIL
-                // =========================================
-
-                AppDestinations.PROFILE -> {
-
-                    ProfileScreen(
-                        modifier =
-                            Modifier.padding(innerPadding)
-                    )
-                }
+                AppDestinations.AUTHORS -> AuthorsTab()
             }
         }
+    }
+}
+
+
+// ======================================================
+// ONGLET AUTEURS : recherche -> livres de l'auteur -> détail
+// ======================================================
+
+@Composable
+fun AuthorsTab() {
+
+    // L'auteur est identifié par son ID Open Library (pas seulement son nom)
+    var pickedAuthorKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var pickedAuthorName by rememberSaveable { mutableStateOf("") }
+    var pickedBook by remember { mutableStateOf<Book?>(null) }
+
+    // Bouton retour du téléphone : détail -> livres de l'auteur -> recherche
+    BackHandler(enabled = pickedBook != null || pickedAuthorKey != null) {
+        if (pickedBook != null) {
+            pickedBook = null
+        } else {
+            pickedAuthorKey = null
+        }
+    }
+
+    val book = pickedBook
+    val authorKey = pickedAuthorKey
+
+    when {
+
+        book != null -> BookDetailScreen(
+            book = book,
+            onBack = { pickedBook = null },
+            // On est déjà dans l'onglet de cet auteur : on revient à sa liste
+            onAuthorClick = { pickedBook = null }
+        )
+
+        authorKey != null -> AuthorWorksScreen(
+            authorKey = authorKey,
+            authorName = pickedAuthorName,
+            onBack = { pickedAuthorKey = null },
+            onBookClick = { pickedBook = it }
+        )
+
+        else -> AuthorsScreen(
+            onAuthorClick = { key, name ->
+                pickedAuthorName = name
+                pickedAuthorKey = key
+            }
+        )
     }
 }
 
@@ -173,7 +170,6 @@ enum class AppDestinations(
     HOME(
         label = "Accueil",
         icon = R.drawable.img
-
     ),
 
     FAVORITES(
@@ -181,8 +177,8 @@ enum class AppDestinations(
         icon = R.drawable.img_1
     ),
 
-    PROFILE(
-        label = "Profil",
+    AUTHORS(
+        label = "Auteurs",
         icon = R.drawable.ic_account_box
     )
 }

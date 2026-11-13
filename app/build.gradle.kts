@@ -45,7 +45,7 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation("io.coil-kt:coil-compose:2.7.0")
-
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("androidx.room:room-runtime:2.8.0")
     implementation("androidx.room:room-ktx:2.8.0")
     implementation("androidx.room:room-runtime:2.8.0")
