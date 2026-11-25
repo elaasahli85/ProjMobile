@@ -158,14 +158,9 @@ Le bouton retour système est géré via `BackHandler`, avec des transitions ani
 ---
 
 ## 🔮 Pistes d'amélioration
-
-- Ouvrir le détail d'un livre depuis la liste des favoris
-- Récupérer une vraie description via l'API *works* d'Open Library
 - Migrer vers une architecture **MVVM** (ViewModel + StateFlow) et Hilt
-- Utiliser Navigation Compose
 - Mise en cache hors-ligne des listes
 - Mode sombre
-- Internationalisation (chaînes dans `strings.xml`)
 
 ---
 
