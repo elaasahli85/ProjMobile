@@ -11,6 +11,8 @@ import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
@@ -578,7 +580,11 @@ fun FavoriteItem(
                     color = FavCoral.copy(alpha = 0.14f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(text = "🗑️", fontSize = 18.sp)
+                        Image(
+                            painter = painterResource(id = R.drawable.poubelle),
+                            contentDescription = "Supprimer",
+                            modifier = Modifier.size(27.dp)
+                        )
                     }
                 }
             }
